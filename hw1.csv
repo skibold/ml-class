@@ -1,0 +1,7 @@
+class,writable,updated,size
+text,yes,no,small
+text,yes,yes,large
+text,no,yes,med
+executable,no,no,med
+executable,yes,no,large
+executable,no,no,large

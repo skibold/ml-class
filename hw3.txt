@@ -1,0 +1,24 @@
+John Scebold
+CS 6375 HW3
+6/18/2019
+
+Part 1
+Error A = 0+1+1+1+0+0 = 3
+Error B = 1+1+0+0+1+0 = 3
+
+Part 2
+Permutation 1
+  Error A = 5/6 = 0.833
+  Error B = 5/6 = 0.833
+
+Permutation 2
+  Error A = 4/6 = 0.667
+  Error B = 3/6 = 0.5
+  
+Permutation 3
+  Error A = 5/6 = 0.833
+  Error B = 5/6 = 0.833
+  
+Error A: mean = 0.7778; std = 0.078567
+Error B: mean = 0.7222; std = 0.157135
+  
