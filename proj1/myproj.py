@@ -2,19 +2,24 @@ import tensorflow as tf
 import numpy as np
 from sys import argv
 
-# set the random seeds to make sure your results are reproducible
-from numpy.random import seed
-seed(1)
-from tensorflow import set_random_seed
-set_random_seed(1)
-
 # specify path to training data and testing data
+
+if len(argv) < 4:
+    print("Usage: myproj.py train_x train_y seed")
+    exit(1)
 
 train_x_location = argv[1] #"x_train_perm3.csv"
 train_y_location = argv[2] #"y_train_perm3.csv"
 log = argv[3]
+seed=7 #argv[3]
 test_x_location = "x_test.csv"
 test_y_location = "y_test.csv"
+
+# set the random seeds to make sure your results are reproducible
+#from numpy.random import seed
+np.random.seed(seed)
+#from tensorflow import set_random_seed
+tf.set_random_seed(seed)
 
 print("Reading training data")
 x_train = np.loadtxt(train_x_location, dtype=np.float, delimiter=",")
