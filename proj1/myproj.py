@@ -2,24 +2,20 @@ import tensorflow as tf
 import numpy as np
 from sys import argv
 
+# set the random seeds to make sure your results are reproducible
+np.random.seed(1)
+tf.set_random_seed(1)
+
 # specify path to training data and testing data
-
-if len(argv) < 4:
-    print("Usage: myproj.py train_x train_y seed")
+if len(argv) < 3:
+    print("Usage: myproj.py train_x train_y [log]")
     exit(1)
-
 train_x_location = argv[1] #"x_train_perm3.csv"
 train_y_location = argv[2] #"y_train_perm3.csv"
-log = argv[3]
-seed=7 #argv[3]
+if len(argv) == 4:
+	log = argv[3]
 test_x_location = "x_test.csv"
 test_y_location = "y_test.csv"
-
-# set the random seeds to make sure your results are reproducible
-#from numpy.random import seed
-np.random.seed(seed)
-#from tensorflow import set_random_seed
-tf.set_random_seed(seed)
 
 print("Reading training data")
 x_train = np.loadtxt(train_x_location, dtype=np.float, delimiter=",")
@@ -35,10 +31,6 @@ k = y_train.max()+1
 
 print(m, "examples,", n, "features,", k, "categories.")
 
-
-# print("Pre processing x of training data")
-# x_train = x_train / 1.0
-
 # define the training model
 model = tf.keras.models.Sequential([
 	tf.keras.layers.Dense(30, activation=tf.keras.activations.relu,
@@ -47,16 +39,17 @@ model = tf.keras.models.Sequential([
 	tf.keras.layers.Dense(10, activation=tf.keras.activations.relu), # reduce to 10 features, pca shows this captures 95% of the variance
 	tf.keras.layers.GaussianNoise(1), # don't overfit since it's such a small training set
 	tf.keras.layers.Dense(5, activation=tf.keras.activations.relu),
-	tf.keras.layers.Dropout(.4), #drop 8/10 weights going into softmax
+	tf.keras.layers.Dropout(.4), #drop 6/10 weights going into softmax
 	tf.keras.layers.Dense(k, activation=tf.nn.softmax)
 ])
 model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
 
-model.fit(x_train, y_train, epochs=500, batch_size=18)
+x_train *= 0.01
+model.fit(x_train, y_train, epochs=2000, batch_size=18)
 
 print("Reading testing data")
 x_test = np.loadtxt(test_x_location, dtype=np.float, delimiter=",")
-y_test = np.loadtxt(test_y_location, dtype=np.float, delimiter=",")
+y_test = np.loadtxt(test_y_location, dtype=np.int, delimiter=",")
 
 m_test, n_test = x_test.shape
 m_test_labels,  = y_test.shape
@@ -70,8 +63,10 @@ print(m_test, "test examples.")
 # print("Pre processing testing data")
 # x_test = x_test / 1.0
 
+x_test *= 0.01
 print(model.evaluate(x_test, y_test, batch_size=18, verbose=1))
-with open(log, 'a') as fout:
-	fout.write("{}\n".format(model.evaluate(x_test, y_test, batch_size=18, verbose=1)))
+if log:
+	with open(log, 'a') as fout:
+		fout.write("{}\n".format(model.evaluate(x_test, y_test, batch_size=18, verbose=1)))
 
 
