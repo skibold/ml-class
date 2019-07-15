@@ -1,4 +1,5 @@
 import numpy as np
+import json
 
 def lt(x, y):
 	return x < y
@@ -21,6 +22,7 @@ class WeakClassifier:
 	def __init__(self, p_array, iter):
 		self.p_array = p_array
 		self.iter = iter
+		self.name = "h%d" % iter
 		self.alpha = 0
 		self.error = 1
 		self.z = 0
@@ -77,8 +79,15 @@ class WeakClassifier:
 		else:
 			return -self.alpha
 			
+	def as_dict(self):
+		return {self.name:"x{}{}".format(self.c_str,self.thresh), 
+				"error":self.error, 
+				"alpha":self.alpha, 
+				"Z":self.z, 
+				"p_i":list(self.p_array)}
+			
 	def __str__(self):
-		return "h{}: x{}{}, error: {}, alpha: {}, Z: {}, probabilities: {}".format(self.iter, self.c_str, self.thresh, self.error, self.alpha, self.z, self.p_array)
+		return json.dumps(self.as_dict(), indent=2)
 		
 		
 class AdaBoost:
