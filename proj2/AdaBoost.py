@@ -32,6 +32,7 @@ class WeakClassifier:
 		self.c_str = ''
 
 	def test_func(self, func, means, mapback, s_feat, labels):
+		# wrongs, errors, means, s_feat are all in the same order
 		errors = []
 		wrongs = []
 		for m in means:
@@ -59,7 +60,7 @@ class WeakClassifier:
 		means.append(s_feat[-1]+1)
 		
 		self.error = 1 # the highest it could be
-		wrongs = None
+		wrongs = None # same order as s_feat
 		for s,c in COMPARATORS.items():
 			e,t,w = self.test_func(c, means, mapback, s_feat, labels)
 			if e < self.error:
@@ -69,7 +70,11 @@ class WeakClassifier:
 				self.c_str = s
 				wrongs = w
 		
-		self.alpha = .5 * np.log((1-self.error)/self.error)
+		# lim x->0 alpha = infinity
+		if self.error == 0:
+			self.alpha = 10 # close enough to infinity
+		else:
+			self.alpha = .5 * np.log((1-self.error)/self.error)
 		q_array = [np.exp(self.alpha * wrongs[mapback[i]]) for i in range(len(wrongs))]
 		self.z = np.dot(self.p_array, q_array)
 		self.p_array = np.multiply(self.p_array, q_array) / self.z
@@ -104,24 +109,25 @@ class AdaBoost:
 	def train(self):
 		iter = 1
 		self.p_array = self.initial_p
+		self.classifiers.clear()
 		while iter <= self.T:
 			self.classifiers.append(WeakClassifier(self.p_array, iter))
 			self.classifiers[-1].train(self.features, self.labels)
-			print("\niter {}\nweak classifier: {}\nboosted classifier: {}\nboosted error: {}\nboosted bound: {}".format(iter, str(self.classifiers[-1]), str(self), self.error(), self.bound()))
+			print("\niter {}\nweak classifier: {}\nboosted classifier: {}\nboosted error: {}\nboosted bound: {}"
+				.format(iter, str(self.classifiers[-1]), str(self), self.error, self.bound))
 			self.p_array = self.classifiers[-1].p_array
 			iter += 1
 
+	@property
 	def error(self):
-		return sum([self.p_array[i] for i in range(len(self.features)) if np.sign(self.eval(self.features[i])) != self.labels[i]])
+		return sum([self.p_array[i] for i in range(len(self.features)) if self.eval(self.features[i]) != self.labels[i]])
 
+	@property
 	def bound(self):
 		return np.prod([c.z for c in self.classifiers])
 
 	def eval(self, x):
-		pred = 0
-		for c in self.classifiers:
-			pred += c.eval(x)
-		return pred
+		return np.sign(sum([c.eval(x) for c in self.classifiers]))
 			
 	def __str__(self):
 		rv = ""
@@ -129,12 +135,12 @@ class AdaBoost:
 			rv += "{}*I(x{}{}) + ".format(c.alpha, c.c_str, c.thresh)
 		return rv[:-3] # chop off that last +
 
-def parse(fname):
+def factory(fname):
 	T = 0
 	n = 0
 	features = []
 	labels = []
-	p_array = []
+	p_array = None
 	try:
 		with open(fname) as fin:
 			line = fin.readline().strip().split()
@@ -145,9 +151,6 @@ def parse(fname):
 			p_array = np.array(fin.readline().strip().split()[:n+1], dtype=np.float)
 	except:
 		print("Error: input format error ({}) {} {} {} {} {}".format(fname, T, n, features, labels, p_array))
-	return T, features, labels, p_array
-
-def factory(T, features, labels, p_array=None):
 	return AdaBoost(T, features, labels, p_array)
 
 if __name__ == "__main__":
@@ -155,6 +158,6 @@ if __name__ == "__main__":
 		print("Usage: python AdaBoost.py <input file>")
 		exit(1)
 
-	t = parse(argv[1])
-	ab = factory(t[0], t[1], t[2], t[3]).train()
+	ab = factory(argv[1])	
+	ab.train()
 	
