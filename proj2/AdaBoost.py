@@ -1,5 +1,6 @@
 import numpy as np
 import json
+from sys import argv
 
 def lt(x, y):
 	return x < y
@@ -91,22 +92,31 @@ class WeakClassifier:
 		
 		
 class AdaBoost:
-	def __init__(self, T, features, labels):
+	def __init__(self, T, features, labels, initial_p=None):
 		self.classifiers = []
 		self.features = features
 		self.labels = labels
 		self.T = T
+		self.initial_p = [1/len(self.features)]*len(self.features) # uniform
+		if initial_p is not None:
+			self.initial_p = initial_p
 		
 	def train(self):
 		iter = 1
-		p_array = [1/len(self.features)]*len(self.features)
+		self.p_array = self.initial_p
 		while iter <= self.T:
-			self.classifiers.append(WeakClassifier(p_array, iter))
+			self.classifiers.append(WeakClassifier(self.p_array, iter))
 			self.classifiers[-1].train(self.features, self.labels)
-			print("\niter {}\nweak classifier: {}\nboosted classifier: {}".format(iter, str(self.classifiers[-1]), str(self)))
-			p_array = self.classifiers[-1].p_array
+			print("\niter {}\nweak classifier: {}\nboosted classifier: {}\nboosted error: {}\nboosted bound: {}".format(iter, str(self.classifiers[-1]), str(self), self.error(), self.bound()))
+			self.p_array = self.classifiers[-1].p_array
 			iter += 1
-		
+
+	def error(self):
+		return sum([self.p_array[i] for i in range(len(self.features)) if np.sign(self.eval(self.features[i])) != self.labels[i]])
+
+	def bound(self):
+		return np.prod([c.z for c in self.classifiers])
+
 	def eval(self, x):
 		pred = 0
 		for c in self.classifiers:
@@ -118,6 +128,33 @@ class AdaBoost:
 		for c in self.classifiers:
 			rv += "{}*I(x{}{}) + ".format(c.alpha, c.c_str, c.thresh)
 		return rv[:-3] # chop off that last +
-		
-		
-		
+
+def parse(fname):
+	T = 0
+	n = 0
+	features = []
+	labels = []
+	p_array = []
+	try:
+		with open(fname) as fin:
+			line = fin.readline().strip().split()
+			T = int(line[0])
+			n = int(line[1])
+			features = np.array(fin.readline().strip().split()[:n+1], dtype=np.float)
+			labels = np.array(fin.readline().strip().split()[:n+1], dtype=np.int)
+			p_array = np.array(fin.readline().strip().split()[:n+1], dtype=np.float)
+	except:
+		print("Error: input format error ({}) {} {} {} {} {}".format(fname, T, n, features, labels, p_array))
+	return T, features, labels, p_array
+
+def factory(T, features, labels, p_array=None):
+	return AdaBoost(T, features, labels, p_array)
+
+if __name__ == "__main__":
+	if len(argv) != 2:
+		print("Usage: python AdaBoost.py <input file>")
+		exit(1)
+
+	t = parse(argv[1])
+	ab = factory(t[0], t[1], t[2], t[3]).train()
+	
