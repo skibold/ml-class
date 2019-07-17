@@ -2,20 +2,22 @@ import numpy as np
 import json
 from sys import argv
 
+PREDICTIONS = [-1, 1] # corresponds to [False, True]
+
 def lt(x, y):
-	return x < y
+	return PREDICTIONS[int(x < y)]
 	
 def le(x, y):
-	return x <= y
+	return PREDICTIONS[int(x <= y)]
 	
 def gt(x, y):
-	return x > y
+	return PREDICTIONS[int(x > y)]
 	
 def ge(x, y):
-	return x >= y
+	return PREDICTIONS[int(x >= y)]
 	
 def eq(x, y):
-	return x == y
+	return PREDICTIONS[int(x == y)]
 	
 COMPARATORS = {'<':lt, '>':gt}
 
@@ -31,38 +33,32 @@ class WeakClassifier:
 		self.thresh = None	
 		self.c_str = ''
 
-	def test_func(self, func, means, mapback, s_feat, labels):
-		# wrongs, errors, means, s_feat are all in the same order
+	def test_func(self, func, means, features, labels):
 		errors = []
 		wrongs = []
 		for m in means:
 			e = 0
-			w = np.ones(len(s_feat)) * -1 # no errors
-			for i,f in enumerate(s_feat):
-				pred = -1 # assume we got it wrong
-				if func.__call__(f, m):
-					pred = 1 # actually got it right
-				if pred != labels[mapback[i]]: # indeed got it wrong
+			w = np.ones(len(features), dtype=np.int) * -1 # no errors
+			for i,f in enumerate(features):
+				if func.__call__(f, m) != labels[i]: # predicted wrong
 					w[i] = 1 # mark the error
-					e += self.p_array[mapback[i]] # sum the error
+					e += self.p_array[i] # sum the error
 			errors.append(e)
 			wrongs.append(w)
 			
 		least = np.argmin(errors)
 		return errors[least], means[least], wrongs[least]
 		
-	def train(self, features, labels):
+	def train(self, features, labels): # assume features are sorted ascending and labels correspond
 		# pick the function and thresh that minimize error
-		mapback = np.argsort(features)
-		s_feat = sorted(features)
-		means = [s_feat[0]-1]
-		means.extend(np.mean(s_feat[i:i+2]) for i in range(len(s_feat)-1))
-		means.append(s_feat[-1]+1)
+		means = [features[0]-1]
+		means.extend(np.mean(features[i:i+2]) for i in range(len(features)-1))
+		means.append(features[-1]+1)
 		
 		self.error = 1 # the highest it could be
-		wrongs = None # same order as s_feat
+		wrongs = None
 		for s,c in COMPARATORS.items():
-			e,t,w = self.test_func(c, means, mapback, s_feat, labels)
+			e,t,w = self.test_func(c, means, features, labels)
 			if e < self.error:
 				self.error = e
 				self.thresh = t
@@ -70,27 +66,24 @@ class WeakClassifier:
 				self.c_str = s
 				wrongs = w
 		
-		# lim x->0 alpha = infinity
+		# lim x->0 (alpha) = infinity
 		if self.error == 0:
 			self.alpha = 10 # close enough to infinity
 		else:
 			self.alpha = .5 * np.log((1-self.error)/self.error)
-		q_array = [np.exp(self.alpha * wrongs[mapback[i]]) for i in range(len(wrongs))]
+		q_array = [np.exp(self.alpha * w) for w in wrongs]
 		self.z = np.dot(self.p_array, q_array)
 		self.p_array = np.multiply(self.p_array, q_array) / self.z
 		
 	def eval(self, x):
-		if self.comparator.__call__(x, self.thresh):
-			return self.alpha
-		else:
-			return -self.alpha
+		return self.comparator.__call__(x, self.thresh) * self.alpha
 			
 	def as_dict(self):
 		return {self.name:"x{}{}".format(self.c_str,self.thresh), 
 				"error":self.error, 
 				"alpha":self.alpha, 
 				"Z":self.z, 
-				"p_i":list(self.p_array)}
+				"p_i":sum(self.p_array)}
 			
 	def __str__(self):
 		return json.dumps(self.as_dict(), indent=2)
@@ -99,8 +92,9 @@ class WeakClassifier:
 class AdaBoost:
 	def __init__(self, T, features, labels, initial_p=None):
 		self.classifiers = []
-		self.features = features
-		self.labels = labels
+		mapback = np.argsort(features) # sort labels and features
+		self.features = np.array(sorted(features), dtype=np.float)
+		self.labels = np.array([labels[mapback[i]] for i in range(len(labels))], dtype=np.int)
 		self.T = T
 		self.initial_p = [1/len(self.features)]*len(self.features) # uniform
 		if initial_p is not None:
