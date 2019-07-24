@@ -79,14 +79,23 @@ class WeakClassifier:
 		return self.comparator.__call__(x, self.thresh) * self.alpha
 			
 	def as_dict(self):
-		return {self.name:"x{}{}".format(self.c_str,self.thresh), 
+		return {self.name:"I(x{}{})".format(self.c_str,self.thresh), 
 				"error":self.error, 
 				"alpha":self.alpha, 
 				"Z":self.z, 
-				"p_i":sum(self.p_array)}
+				"p":list(self.p_array)}
 			
 	def __str__(self):
-		return json.dumps(self.as_dict(), indent=2)
+		d = self.as_dict()
+		s = "The selected weak classifier {}:{}\n".format(self.name, d[self.name])
+		s += "The error of {}: {}\n".format(self.name, d['error'])
+		s += "The weight of {}: {}\n".format(self.name, d['alpha'])
+		s += "The probabilities normalization factor Z{}: {}\n".format(self.iter, d['Z'])
+		s += "The probabilities normalized: "
+		for p in d['p']:
+			s += "|{}".format(p)
+		s += "|"
+		return s #json.dumps(self.as_dict(), indent=2)
 		
 		
 class AdaBoost:
@@ -107,21 +116,27 @@ class AdaBoost:
 		while iter <= self.T:
 			self.classifiers.append(WeakClassifier(self.p_array, iter))
 			self.classifiers[-1].train(self.features, self.labels)
-			print("\niter {}\nweak classifier: {}\nboosted classifier: {}\nboosted error: {}\nboosted bound: {}"
-				.format(iter, str(self.classifiers[-1]), str(self), self.error, self.bound))
+			bc = "|"
+			for x in self.features:
+				bc += "{}|".format(self.eval(x))
+			print("\n---Iteration {}----\n{}\nThe boosted classifier: {}\nThe boosted error: {}\nThe error bound: {}"
+				.format(iter, str(self.classifiers[-1]), bc, self.error, self.bound))
 			self.p_array = self.classifiers[-1].p_array
 			iter += 1
 
 	@property
 	def error(self):
-		return sum([self.p_array[i] for i in range(len(self.features)) if self.eval(self.features[i]) != self.labels[i]])
+		return sum([1 for i in range(len(self.features)) if self.predict(self.features[i]) != self.labels[i]]) / len(self.labels)
 
 	@property
 	def bound(self):
 		return np.prod([c.z for c in self.classifiers])
 
+	def predict(self, x):
+		return np.sign(self.eval(x))
+
 	def eval(self, x):
-		return np.sign(sum([c.eval(x) for c in self.classifiers]))
+		return sum([c.eval(x) for c in self.classifiers])
 			
 	def __str__(self):
 		rv = ""
